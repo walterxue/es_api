@@ -9,7 +9,7 @@ es = Elasticsearch(
     sniff_timeout=60,    # 設定超時時間
     ignore=400,  # 忽略返回的400狀態碼
     ignore=[400, 405, 502],  # 以列表的形式忽略多個狀態碼
-    http_auth=('elastic', 'changeme')  # 認證資訊
+    http_auth=('elastic', 'zT0YA5W01tcTlIi2De04')  # 認證資訊
     )
 #叢集基本資訊
 print(es.info())
