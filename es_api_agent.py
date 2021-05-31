@@ -7,12 +7,21 @@ es = Elasticsearch(
     sniff_on_start=True,    # 連線前測試
     sniff_on_connection_fail=True,  # 節點無響應時重新整理節點
     sniff_timeout=60,    # 設定超時時間
-    ignore=400,  # 忽略返回的400狀態碼
-    ignore=[400, 405, 502],  # 以列表的形式忽略多個狀態碼
     http_auth=('elastic', 'zT0YA5W01tcTlIi2De04')  # 認證資訊
     )
-#叢集基本資訊
-print(es.info())
-#狀態資訊
-print(es.cluster.health())
-四、插入資料
+    "body": {
+        "size": 0,
+        "aggs": {
+        "2": {
+            "terms": {
+            "field": "agent",
+            "order": {
+                "_count": "asc"
+            },
+            "size": 500
+            }
+        }
+        }
+    }
+    request = es.search(index="logstash-ky110-channelhandle-out-20210531", doc_type="mytype", body=body)
+    print(request)
