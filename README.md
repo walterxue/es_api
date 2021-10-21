@@ -14,4 +14,4 @@
    query 產品 index 現在時間到一天的代理總數後  並做 bucket 計算出前幾名丟進陣列內
 
 5. function check_agent_count
-   根據傳進來的 product 參數，來搜尋三分內的代理總數，低於 1 就呼叫 function telegram_bot_sendtext 發出告警
+   根據傳進來的 product 參數，來搜尋三分內的代理的請求數，低於 1 就呼叫 function telegram_bot_sendtext 發出告警
