@@ -1,5 +1,4 @@
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime,timedelta
 import requests
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import A,Q,Search
@@ -9,11 +8,10 @@ import argparse
 
 #es連線資訊
 def connection_info():
-    es = Elasticsearch(["192.168.185.88"],
-        http_auth=('elastic', 'changeme')
+    es = Elasticsearch(["10.121.0.41","10.121.0.42","10.121.0.43","10.121.0.44","10.121.0.45","10.121.0.46"],
+    http_auth=('elastic', 'zT0YA5W01tcTlIi2De04')
     )
     return es
-
 def product_info(product):
     products = {
         'lc' : '10',
@@ -95,7 +93,7 @@ def get_agent_list(product):
     top_size = product_info(product)
     #獲取特定時間的代理號總數並做bucket
     try:
-        s = Search(using=es, index=f"logstash-{product}-channelhandle-out-*").filter('range',  ** {'@timestamp':{'gte': "now-30d" }})
+        s = Search(using=es, index=f"logstash-{product}-channelhandle-out-*").filter('range',  ** {'@timestamp':{'gte': "now-12h" }})
         s.aggs.bucket('agent','terms', field='agent',size=top_size)
         response = s.execute()
     except:
@@ -114,11 +112,11 @@ def check_agent_count_to_es(product):
     create_index(product)   
     es = connection_info()
     ymd = datetime.today().strftime('%Y%m%d')
-    index_name = f"{product}-agnet-monitor-alert-{ymd}"
+    index_name = f"logstash-{product}-agent-monitor-alert-{ymd}"
     agent_list = get_agent_list(product)
 
     for agent in agent_list:
-        s = Search(using=es, index=f"logstash-{product}-channelhandle-out-*").query("match",agent=agent).filter('range',  ** {'@timestamp':{'gte': "now-30d" }})
+        s = Search(using=es, index=f"logstash-{product}-channelhandle-out-*").query("match",agent=agent).filter('range',  ** {'@timestamp':{'gte': "now-3m" }})
         response =  s.execute()
         
         #定義時間時區
@@ -151,29 +149,38 @@ def check_agent_count_to_es(product):
             }
             #塞資料到elk內
             insert_data = es.index(index=index_name, body=data)                
-            # bot_message = f"{product} 代理：{agent} 目前人數 {response.hits.total.value}"
-            # telegram_bot_sendtext(bot_message)
+            #bot_message = f"{product} 代理：{agent} 目前人數 {response.hits.total.value}"
+            #telegram_bot_sendtext(bot_message)
 
 def monitor_alert(product):
     es = connection_info()
-    # ymd = datetime.today().strftime('%Y%m%d')
-    # now = datetime.now()
-    NowST = round(datetime.timestamp(datetime.now()))*1000
-
-    SixMinST = round(datetime.timestamp(datetime.now()+timedelta(minutes=-6)))*1000
-    ThreeMinST = round(datetime.timestamp(datetime.now()+timedelta(minutes=-3)))*1000
-
-    ymd = "20211022"
+    ymd = datetime.today().strftime('%Y%m%d')
     agent_list = get_agent_list(product)
+    NowTS = round(datetime.timestamp(datetime.now()))*1000
+    ThreeMinTS = round(datetime.timestamp(datetime.now()+timedelta(minutes=-3)))*1000
+    SixMinTS = round(datetime.timestamp(datetime.now()+timedelta(minutes=-6)))*1000
+ 
     for agent in agent_list:
-        s1 = Search(using=es, index=f"{product}-agnet-monitor-alert-{ymd}").query("match",agent=agent).filter('range',  ** {'@timestamp':{'gte': "now-30d" }})
-        result_3 =  s1.execute()
-        for i in result_3:
-            print(i.to_dict())
-    print(NowST)
-    print(ThreeMinST)
-    print(SixMinST)
+        s1 = Search(using=es, index=f"logstash-{product}-agent-monitor-alert-{ymd}").query("match",agent=agent).filter('range',  ** {'@timestamp':{'gte':ThreeMinTS,'lt':NowTS}})
+        s2 = Search(using=es, index=f"logstash-{product}-agent-monitor-alert-{ymd}").query("match",agent=agent).filter('range',  ** {'@timestamp':{'gte':SixMinTS,'lt':ThreeMinTS}})
+        result_3 = s1.execute()
+        result_6 = s2.execute()
 
+        for i,j in zip(result_3,result_6):
+            if i['result'] == 'Resolved' and j['result'] == 'Resolved':
+                return "OK"
+            elif i['result'] == 'No data' and j['result'] == 'No data':
+                return "No Data"
+            elif i['result'] == 'Resolved' and j['result'] == 'No data':
+                bot_message = f"Status: Warning!! {product} 代理：{agent} API Request < 0."
+                telegram_bot_sendtext(bot_message)
+            elif i['result'] == 'No data' and j['result'] =='Resolved':
+                bot_message = f"Status: Resolve!! {product} 代理：{agent} API Request > 0."
+                telegram_bot_sendtext(bot_message) 
+            else:
+                return "Nothing"
+
+                
 
 
 parser = argparse.ArgumentParser(description='Agent count Alert')
